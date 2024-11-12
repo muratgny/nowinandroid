@@ -24,7 +24,7 @@ pluginManagement {
 }
 
 dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositoriesMode = RepositoriesMode.FAIL_ON_PROJECT_REPOS
     repositories {
         google()
         mavenCentral()
@@ -36,6 +36,7 @@ enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 include(":app")
 include(":app-nia-catalog")
 include(":benchmarks")
+include(":core:analytics")
 include(":core:common")
 include(":core:data")
 include(":core:data-test")
@@ -47,10 +48,10 @@ include(":core:designsystem")
 include(":core:domain")
 include(":core:model")
 include(":core:network")
-include(":core:ui")
-include(":core:testing")
-include(":core:analytics")
 include(":core:notifications")
+include(":core:screenshot-testing")
+include(":core:testing")
+include(":core:ui")
 
 include(":feature:foryou")
 include(":feature:interests")
@@ -62,3 +63,11 @@ include(":lint")
 include(":sync:work")
 include(":sync:sync-test")
 include(":ui-test-hilt-manifest")
+
+check(JavaVersion.current().isCompatibleWith(JavaVersion.VERSION_17)) {
+    """
+    Now in Android requires JDK 17+ but it is currently using JDK ${JavaVersion.current()}.
+    Java Home: [${System.getProperty("java.home")}]
+    https://developer.android.com/build/jdks#jdk-config-in-studio
+    """.trimIndent()
+}

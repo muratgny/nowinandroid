@@ -111,7 +111,8 @@ Examples:
 
 To run the tests execute the following gradle tasks: 
 
-- `testDemoDebug` run all local tests against the `demoDebug` variant.
+- `testDemoDebug` run all local tests against the `demoDebug` variant. Screenshot tests will fail
+(see below for explanation). To avoid this, run `recordRoborazziDemoDebug` prior to running unit tests.
 - `connectedDemoDebugAndroidTest` run all instrumented tests against the `demoDebug` variant. 
 
 **Note:** You should not run `./gradlew test` or `./gradlew connectedAndroidTest` as this will execute 
@@ -122,9 +123,9 @@ tests against _all_ build variants which is both unecessary and will result in f
 A screenshot test takes a screenshot of a screen or a UI component within the app, and compares it 
 with a previously recorded screenshot which is known to be rendered correctly. 
 
-For example, Now in Android has [screenshot tests](https://github.com/android/nowinandroid/blob/main/app/src/testDemoDebug/kotlin/com/google/samples/apps/nowinandroid/ui/NiaAppScreenSizesScreenshotTests.kt)
+For example, Now in Android has [screenshot tests](https://github.com/android/nowinandroid/blob/main/app/src/testDemo/kotlin/com/google/samples/apps/nowinandroid/ui/NiaAppScreenSizesScreenshotTests.kt)
 to verify that the navigation is displayed correctly on different screen sizes 
-([known correct screenshots](https://github.com/android/nowinandroid/tree/main/app/src/testDemoDebug/screenshots)). 
+([known correct screenshots](https://github.com/android/nowinandroid/tree/main/app/src/testDemo/screenshots)). 
 
 Now In Android uses [Roborazzi](https://github.com/takahirom/roborazzi) to run screenshot tests
 of certain screens and UI components. When working with screenshot tests the following gradle tasks are useful:
@@ -137,7 +138,7 @@ stored in `modulename/src/test/screenshots`.
 - `compareRoborazziDemoDebug` create comparison images between failed tests and the known correct
 images. These can also be found in `modulename/src/test/screenshots`. 
 
-**Note:** The known correct screenshots stored in this repository are recorded on CI using Linux. Other
+**Note on failing screenshot tests:** The known correct screenshots stored in this repository are recorded on CI using Linux. Other
 platforms may (and probably will) generate slightly different images, making the screenshot tests fail. 
 When working on a non-Linux platform, a workaround to this is to run `recordRoborazziDemoDebug` on the
 `main` branch before starting work. After making changes, `verifyRoborazziDemoDebug` will identify only

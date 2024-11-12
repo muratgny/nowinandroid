@@ -41,7 +41,6 @@ import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
 import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
@@ -55,7 +54,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -67,6 +65,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -74,6 +73,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewParameter
@@ -88,62 +88,56 @@ import com.google.samples.apps.nowinandroid.core.designsystem.theme.NiaTheme
 import com.google.samples.apps.nowinandroid.core.model.data.FollowableTopic
 import com.google.samples.apps.nowinandroid.core.model.data.UserNewsResource
 import com.google.samples.apps.nowinandroid.core.ui.DevicePreviews
+import com.google.samples.apps.nowinandroid.core.ui.InterestsItem
 import com.google.samples.apps.nowinandroid.core.ui.NewsFeedUiState.Success
 import com.google.samples.apps.nowinandroid.core.ui.R.string
 import com.google.samples.apps.nowinandroid.core.ui.TrackScreenViewEvent
 import com.google.samples.apps.nowinandroid.core.ui.newsFeed
-import com.google.samples.apps.nowinandroid.feature.bookmarks.BookmarksViewModel
-import com.google.samples.apps.nowinandroid.feature.foryou.ForYouViewModel
-import com.google.samples.apps.nowinandroid.feature.interests.InterestsItem
-import com.google.samples.apps.nowinandroid.feature.interests.InterestsViewModel
 import com.google.samples.apps.nowinandroid.feature.search.R as searchR
 
 @Composable
 internal fun SearchRoute(
-    modifier: Modifier = Modifier,
     onBackClick: () -> Unit,
     onInterestsClick: () -> Unit,
     onTopicClick: (String) -> Unit,
-    bookmarksViewModel: BookmarksViewModel = hiltViewModel(),
-    interestsViewModel: InterestsViewModel = hiltViewModel(),
+    modifier: Modifier = Modifier,
     searchViewModel: SearchViewModel = hiltViewModel(),
-    forYouViewModel: ForYouViewModel = hiltViewModel(),
 ) {
     val recentSearchQueriesUiState by searchViewModel.recentSearchQueriesUiState.collectAsStateWithLifecycle()
     val searchResultUiState by searchViewModel.searchResultUiState.collectAsStateWithLifecycle()
     val searchQuery by searchViewModel.searchQuery.collectAsStateWithLifecycle()
     SearchScreen(
         modifier = modifier,
-        onBackClick = onBackClick,
-        onClearRecentSearches = searchViewModel::clearRecentSearches,
-        onFollowButtonClick = interestsViewModel::followTopic,
-        onInterestsClick = onInterestsClick,
+        searchQuery = searchQuery,
+        recentSearchesUiState = recentSearchQueriesUiState,
+        searchResultUiState = searchResultUiState,
         onSearchQueryChanged = searchViewModel::onSearchQueryChanged,
         onSearchTriggered = searchViewModel::onSearchTriggered,
+        onClearRecentSearches = searchViewModel::clearRecentSearches,
+        onNewsResourcesCheckedChanged = searchViewModel::setNewsResourceBookmarked,
+        onNewsResourceViewed = { searchViewModel.setNewsResourceViewed(it, true) },
+        onFollowButtonClick = searchViewModel::followTopic,
+        onBackClick = onBackClick,
+        onInterestsClick = onInterestsClick,
         onTopicClick = onTopicClick,
-        onNewsResourcesCheckedChanged = forYouViewModel::updateNewsResourceSaved,
-        onNewsResourceViewed = { bookmarksViewModel.setNewsResourceViewed(it, true) },
-        recentSearchesUiState = recentSearchQueriesUiState,
-        searchQuery = searchQuery,
-        searchResultUiState = searchResultUiState,
     )
 }
 
 @Composable
 internal fun SearchScreen(
     modifier: Modifier = Modifier,
-    onBackClick: () -> Unit = {},
-    onClearRecentSearches: () -> Unit = {},
-    onFollowButtonClick: (String, Boolean) -> Unit = { _, _ -> },
-    onInterestsClick: () -> Unit = {},
-    onNewsResourcesCheckedChanged: (String, Boolean) -> Unit = { _, _ -> },
-    onNewsResourceViewed: (String) -> Unit = {},
-    onSearchQueryChanged: (String) -> Unit = {},
-    onSearchTriggered: (String) -> Unit = {},
-    onTopicClick: (String) -> Unit = {},
     searchQuery: String = "",
     recentSearchesUiState: RecentSearchQueriesUiState = RecentSearchQueriesUiState.Loading,
     searchResultUiState: SearchResultUiState = SearchResultUiState.Loading,
+    onSearchQueryChanged: (String) -> Unit = {},
+    onSearchTriggered: (String) -> Unit = {},
+    onClearRecentSearches: () -> Unit = {},
+    onNewsResourcesCheckedChanged: (String, Boolean) -> Unit = { _, _ -> },
+    onNewsResourceViewed: (String) -> Unit = {},
+    onFollowButtonClick: (String, Boolean) -> Unit = { _, _ -> },
+    onBackClick: () -> Unit = {},
+    onInterestsClick: () -> Unit = {},
+    onTopicClick: (String) -> Unit = {},
 ) {
     TrackScreenViewEvent(screenName = "Search")
     Column(modifier = modifier) {
@@ -177,8 +171,8 @@ internal fun SearchScreen(
             is SearchResultUiState.Success -> {
                 if (searchResultUiState.isEmpty()) {
                     EmptySearchResultBody(
-                        onInterestsClick = onInterestsClick,
                         searchQuery = searchQuery,
+                        onInterestsClick = onInterestsClick,
                     )
                     if (recentSearchesUiState is RecentSearchQueriesUiState.Success) {
                         RecentSearchesBody(
@@ -192,14 +186,14 @@ internal fun SearchScreen(
                     }
                 } else {
                     SearchResultBody(
+                        searchQuery = searchQuery,
                         topics = searchResultUiState.topics,
-                        onFollowButtonClick = onFollowButtonClick,
-                        onNewsResourcesCheckedChanged = onNewsResourcesCheckedChanged,
-                        onNewsResourceViewed = onNewsResourceViewed,
+                        newsResources = searchResultUiState.newsResources,
                         onSearchTriggered = onSearchTriggered,
                         onTopicClick = onTopicClick,
-                        newsResources = searchResultUiState.newsResources,
-                        searchQuery = searchQuery,
+                        onNewsResourcesCheckedChanged = onNewsResourcesCheckedChanged,
+                        onNewsResourceViewed = onNewsResourceViewed,
+                        onFollowButtonClick = onFollowButtonClick,
                     )
                 }
             }
@@ -210,8 +204,8 @@ internal fun SearchScreen(
 
 @Composable
 fun EmptySearchResultBody(
-    onInterestsClick: () -> Unit,
     searchQuery: String,
+    onInterestsClick: () -> Unit,
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -234,23 +228,31 @@ fun EmptySearchResultBody(
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(vertical = 24.dp),
         )
-        val interests = stringResource(id = searchR.string.feature_search_interests)
         val tryAnotherSearchString = buildAnnotatedString {
             append(stringResource(id = searchR.string.feature_search_try_another_search))
             append(" ")
-            withStyle(
-                style = SpanStyle(
-                    textDecoration = TextDecoration.Underline,
-                    fontWeight = FontWeight.Bold,
+            withLink(
+                LinkAnnotation.Clickable(
+                    tag = "",
+                    linkInteractionListener = {
+                        onInterestsClick()
+                    },
                 ),
             ) {
-                pushStringAnnotation(tag = interests, annotation = interests)
-                append(interests)
+                withStyle(
+                    style = SpanStyle(
+                        textDecoration = TextDecoration.Underline,
+                        fontWeight = FontWeight.Bold,
+                    ),
+                ) {
+                    append(stringResource(id = searchR.string.feature_search_interests))
+                }
             }
+
             append(" ")
             append(stringResource(id = searchR.string.feature_search_to_browse_topics))
         }
-        ClickableText(
+        Text(
             text = tryAnotherSearchString,
             style = MaterialTheme.typography.bodyLarge.merge(
                 TextStyle(
@@ -259,13 +261,8 @@ fun EmptySearchResultBody(
                 ),
             ),
             modifier = Modifier
-                .padding(start = 36.dp, end = 36.dp, bottom = 24.dp)
-                .clickable {},
-        ) { offset ->
-            tryAnotherSearchString.getStringAnnotations(start = offset, end = offset)
-                .firstOrNull()
-                ?.let { onInterestsClick() }
-        }
+                .padding(start = 36.dp, end = 36.dp, bottom = 24.dp),
+        )
     }
 }
 
@@ -286,14 +283,14 @@ private fun SearchNotReadyBody() {
 
 @Composable
 private fun SearchResultBody(
+    searchQuery: String,
     topics: List<FollowableTopic>,
     newsResources: List<UserNewsResource>,
-    onFollowButtonClick: (String, Boolean) -> Unit,
-    onNewsResourcesCheckedChanged: (String, Boolean) -> Unit,
-    onNewsResourceViewed: (String) -> Unit,
     onSearchTriggered: (String) -> Unit,
     onTopicClick: (String) -> Unit,
-    searchQuery: String = "",
+    onNewsResourcesCheckedChanged: (String, Boolean) -> Unit,
+    onNewsResourceViewed: (String) -> Unit,
+    onFollowButtonClick: (String, Boolean) -> Unit,
 ) {
     val state = rememberLazyStaggeredGridState()
     Box(
@@ -392,9 +389,9 @@ private fun SearchResultBody(
 
 @Composable
 private fun RecentSearchesBody(
+    recentSearchQueries: List<String>,
     onClearRecentSearches: () -> Unit,
     onRecentSearchClicked: (String) -> Unit,
-    recentSearchQueries: List<String>,
 ) {
     Column {
         Row(
@@ -444,11 +441,11 @@ private fun RecentSearchesBody(
 
 @Composable
 private fun SearchToolbar(
-    modifier: Modifier = Modifier,
-    onBackClick: () -> Unit,
+    searchQuery: String,
     onSearchQueryChanged: (String) -> Unit,
-    searchQuery: String = "",
     onSearchTriggered: (String) -> Unit,
+    onBackClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -470,11 +467,10 @@ private fun SearchToolbar(
     }
 }
 
-@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun SearchTextField(
-    onSearchQueryChanged: (String) -> Unit,
     searchQuery: String,
+    onSearchQueryChanged: (String) -> Unit,
     onSearchTriggered: (String) -> Unit,
 ) {
     val focusRequester = remember { FocusRequester() }
@@ -556,6 +552,7 @@ private fun SearchTextField(
 private fun SearchToolbarPreview() {
     NiaTheme {
         SearchToolbar(
+            searchQuery = "",
             onBackClick = {},
             onSearchQueryChanged = {},
             onSearchTriggered = {},

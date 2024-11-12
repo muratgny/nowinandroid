@@ -18,7 +18,8 @@ package com.google.samples.apps.nowinandroid.core.data.repository
 
 import com.google.samples.apps.nowinandroid.core.analytics.NoOpAnalyticsHelper
 import com.google.samples.apps.nowinandroid.core.datastore.NiaPreferencesDataSource
-import com.google.samples.apps.nowinandroid.core.datastore.test.testUserPreferencesDataStore
+import com.google.samples.apps.nowinandroid.core.datastore.UserPreferences
+import com.google.samples.apps.nowinandroid.core.datastore.test.InMemoryDataStore
 import com.google.samples.apps.nowinandroid.core.model.data.DarkThemeConfig
 import com.google.samples.apps.nowinandroid.core.model.data.ThemeBrand
 import com.google.samples.apps.nowinandroid.core.model.data.UserData
@@ -28,9 +29,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Before
-import org.junit.Rule
 import org.junit.Test
-import org.junit.rules.TemporaryFolder
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -45,14 +44,9 @@ class OfflineFirstUserDataRepositoryTest {
 
     private val analyticsHelper = NoOpAnalyticsHelper()
 
-    @get:Rule
-    val tmpFolder: TemporaryFolder = TemporaryFolder.builder().assureDeletion().build()
-
     @Before
     fun setup() {
-        niaPreferencesDataSource = NiaPreferencesDataSource(
-            tmpFolder.testUserPreferencesDataStore(testScope),
-        )
+        niaPreferencesDataSource = NiaPreferencesDataSource(InMemoryDataStore(UserPreferences.getDefaultInstance()))
 
         subject = OfflineFirstUserDataRepository(
             niaPreferencesDataSource = niaPreferencesDataSource,
@@ -133,7 +127,7 @@ class OfflineFirstUserDataRepositoryTest {
     @Test
     fun offlineFirstUserDataRepository_bookmark_news_resource_logic_delegates_to_nia_preferences() =
         testScope.runTest {
-            subject.updateNewsResourceBookmark(newsResourceId = "0", bookmarked = true)
+            subject.setNewsResourceBookmarked(newsResourceId = "0", bookmarked = true)
 
             assertEquals(
                 setOf("0"),
@@ -142,7 +136,7 @@ class OfflineFirstUserDataRepositoryTest {
                     .first(),
             )
 
-            subject.updateNewsResourceBookmark(newsResourceId = "1", bookmarked = true)
+            subject.setNewsResourceBookmarked(newsResourceId = "1", bookmarked = true)
 
             assertEquals(
                 setOf("0", "1"),

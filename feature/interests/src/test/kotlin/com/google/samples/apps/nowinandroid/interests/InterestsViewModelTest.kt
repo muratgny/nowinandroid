@@ -16,6 +16,8 @@
 
 package com.google.samples.apps.nowinandroid.interests
 
+import androidx.lifecycle.SavedStateHandle
+import androidx.navigation.testing.invoke
 import com.google.samples.apps.nowinandroid.core.domain.GetFollowableTopicsUseCase
 import com.google.samples.apps.nowinandroid.core.model.data.FollowableTopic
 import com.google.samples.apps.nowinandroid.core.model.data.Topic
@@ -24,6 +26,7 @@ import com.google.samples.apps.nowinandroid.core.testing.repository.TestUserData
 import com.google.samples.apps.nowinandroid.core.testing.util.MainDispatcherRule
 import com.google.samples.apps.nowinandroid.feature.interests.InterestsUiState
 import com.google.samples.apps.nowinandroid.feature.interests.InterestsViewModel
+import com.google.samples.apps.nowinandroid.feature.interests.navigation.InterestsRoute
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -31,12 +34,21 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 import kotlin.test.assertEquals
 
 /**
  * To learn more about how this test handles Flows created with stateIn, see
  * https://developer.android.com/kotlin/flow/test#statein
+ *
+ * These tests use Robolectric because the subject under test (the ViewModel) uses
+ * `SavedStateHandle.toRoute` which has a dependency on `android.os.Bundle`.
+ *
+ * TODO: Remove Robolectric if/when AndroidX Navigation API is updated to remove Android dependency.
+ *  See https://issuetracker.google.com/340966212.
  */
+@RunWith(RobolectricTestRunner::class)
 class InterestsViewModelTest {
 
     @get:Rule
@@ -53,6 +65,9 @@ class InterestsViewModelTest {
     @Before
     fun setup() {
         viewModel = InterestsViewModel(
+            savedStateHandle = SavedStateHandle(
+                route = InterestsRoute(initialTopicId = testInputTopics[0].topic.id),
+            ),
             userDataRepository = userDataRepository,
             getFollowableTopics = getFollowableTopicsUseCase,
         )
@@ -65,17 +80,15 @@ class InterestsViewModelTest {
 
     @Test
     fun uiState_whenFollowedTopicsAreLoading_thenShowLoading() = runTest {
-        val collectJob = launch(UnconfinedTestDispatcher()) { viewModel.uiState.collect() }
+        backgroundScope.launch(UnconfinedTestDispatcher()) { viewModel.uiState.collect() }
 
         userDataRepository.setFollowedTopicIds(emptySet())
         assertEquals(InterestsUiState.Loading, viewModel.uiState.value)
-
-        collectJob.cancel()
     }
 
     @Test
     fun uiState_whenFollowingNewTopic_thenShowUpdatedTopics() = runTest {
-        val collectJob = launch(UnconfinedTestDispatcher()) { viewModel.uiState.collect() }
+        backgroundScope.launch(UnconfinedTestDispatcher()) { viewModel.uiState.collect() }
 
         val toggleTopicId = testOutputTopics[1].topic.id
         topicsRepository.sendTopics(testInputTopics.map { it.topic })
@@ -93,16 +106,17 @@ class InterestsViewModelTest {
         )
 
         assertEquals(
-            InterestsUiState.Interests(topics = testOutputTopics),
+            InterestsUiState.Interests(
+                topics = testOutputTopics,
+                selectedTopicId = testInputTopics[0].topic.id,
+            ),
             viewModel.uiState.value,
         )
-
-        collectJob.cancel()
     }
 
     @Test
     fun uiState_whenUnfollowingTopics_thenShowUpdatedTopics() = runTest {
-        val collectJob = launch(UnconfinedTestDispatcher()) { viewModel.uiState.collect() }
+        backgroundScope.launch(UnconfinedTestDispatcher()) { viewModel.uiState.collect() }
 
         val toggleTopicId = testOutputTopics[1].topic.id
 
@@ -123,11 +137,12 @@ class InterestsViewModelTest {
         )
 
         assertEquals(
-            InterestsUiState.Interests(topics = testInputTopics),
+            InterestsUiState.Interests(
+                topics = testInputTopics,
+                selectedTopicId = testInputTopics[0].topic.id,
+            ),
             viewModel.uiState.value,
         )
-
-        collectJob.cancel()
     }
 }
 

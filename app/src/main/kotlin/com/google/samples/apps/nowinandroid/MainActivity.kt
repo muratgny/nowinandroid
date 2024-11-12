@@ -23,8 +23,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
-import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -33,6 +31,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.metrics.performance.JankStats
@@ -42,19 +41,19 @@ import com.google.samples.apps.nowinandroid.core.analytics.AnalyticsHelper
 import com.google.samples.apps.nowinandroid.core.analytics.LocalAnalyticsHelper
 import com.google.samples.apps.nowinandroid.core.data.repository.UserNewsResourceRepository
 import com.google.samples.apps.nowinandroid.core.data.util.NetworkMonitor
+import com.google.samples.apps.nowinandroid.core.data.util.TimeZoneMonitor
 import com.google.samples.apps.nowinandroid.core.designsystem.theme.NiaTheme
 import com.google.samples.apps.nowinandroid.core.model.data.DarkThemeConfig
 import com.google.samples.apps.nowinandroid.core.model.data.ThemeBrand
+import com.google.samples.apps.nowinandroid.core.ui.LocalTimeZone
 import com.google.samples.apps.nowinandroid.ui.NiaApp
+import com.google.samples.apps.nowinandroid.ui.rememberNiaAppState
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-private const val TAG = "MainActivity"
-
-@OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
@@ -68,12 +67,15 @@ class MainActivity : ComponentActivity() {
     lateinit var networkMonitor: NetworkMonitor
 
     @Inject
+    lateinit var timeZoneMonitor: TimeZoneMonitor
+
+    @Inject
     lateinit var analyticsHelper: AnalyticsHelper
 
     @Inject
     lateinit var userNewsResourceRepository: UserNewsResourceRepository
 
-    val viewModel: MainActivityViewModel by viewModels()
+    private val viewModel: MainActivityViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
@@ -126,17 +128,24 @@ class MainActivity : ComponentActivity() {
                 onDispose {}
             }
 
-            CompositionLocalProvider(LocalAnalyticsHelper provides analyticsHelper) {
+            val appState = rememberNiaAppState(
+                networkMonitor = networkMonitor,
+                userNewsResourceRepository = userNewsResourceRepository,
+                timeZoneMonitor = timeZoneMonitor,
+            )
+
+            val currentTimeZone by appState.currentTimeZone.collectAsStateWithLifecycle()
+
+            CompositionLocalProvider(
+                LocalAnalyticsHelper provides analyticsHelper,
+                LocalTimeZone provides currentTimeZone,
+            ) {
                 NiaTheme(
                     darkTheme = darkTheme,
                     androidTheme = shouldUseAndroidTheme(uiState),
                     disableDynamicTheming = shouldDisableDynamicTheming(uiState),
                 ) {
-                    NiaApp(
-                        networkMonitor = networkMonitor,
-                        windowSizeClass = calculateWindowSizeClass(this),
-                        userNewsResourceRepository = userNewsResourceRepository,
-                    )
+                    NiaApp(appState)
                 }
             }
         }
